@@ -1,4 +1,4 @@
-address,start_timestamp,weight,break_months
+address,start_timestamp,multiplier,break_months
 0x83ec0B504650C35320a04F4dc714b36cbd889081,1420070400,100,0
 0x9Bee5b17Eb847744b6a81Ee935409739F91c722c,1411689600,100,3
 0x974B9cb3c122561e3bf6234651E0b82B88Fb9015,1429056000,100,0
