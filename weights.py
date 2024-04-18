@@ -41,8 +41,7 @@ def weight(data, timestamp):
     data['share'] = shares
 
     foundation_share = {'address': foundation, 'share': sum(data['share']) / 99} 
-    data = data.append(foundation_share, ignore_index = True) 
-
+    data = pd.concat([data, pd.DataFrame([foundation_share])], ignore_index=True)
     return data.sort_values(by=['share'], ascending=False, ignore_index=True)
     # todo check addresses format
 
