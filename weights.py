@@ -5,6 +5,7 @@ import os
 import argparse
 import requests
 import json 
+from web3 import Web3
 
 # DAO 0x412a32DD71357bD12337F4408168DF903F90CBD3
 # Multisigs
@@ -15,7 +16,6 @@ splitv2='0xd4ad8daba9ee5ef16bb931d1cbe63fb9e102ec10'
 splitv1='0x84af3D5824F0390b9510440B6ABB5CC02BB68ea1'
 # Splits main contract
 split_main='0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE'
-
 foundation='0x69f4b27882eD6dc39E820acFc08C3d14f8e98a99'
 
 #TODO tx events from updateSplit
@@ -25,11 +25,14 @@ def membership(path):
     if os.path.exists(path):
         csv = pd.read_csv(path)
         data = csv[['address', 'start_timestamp', 'multiplier', 'break_months']]
+        for index, member in data.iterrows():
+            if not Web3.is_address(member['address']):
+                raise Exception(f"Invalid input address: {member['address']}")
         return data
 
+# Calculate shares
 def weight(data, timestamp):
     n = len(data)
-    
     shares = []  
     for i in range(n):
         active_seconds = (timestamp - data['start_timestamp'].iloc[i]) -  data['break_months'].iloc[i] * 2629800
@@ -43,20 +46,19 @@ def weight(data, timestamp):
     foundation_share = {'address': foundation, 'share': sum(data['share']) / 99} 
     data = pd.concat([data, pd.DataFrame([foundation_share])], ignore_index=True)
     return data.sort_values(by=['share'], ascending=False, ignore_index=True)
-    # todo check addresses format
 
+# Percentage allocation from share
 def percentage(data):
     total_shares = sum(data['share'])
     data['percentage'] = (data['share'] / total_shares) * 100 
 
+# Allocation format for split update
 def split(data):
     total_shares = sum(data['share'])
     data['split'] =((data['share'] / total_shares) * 1000000).astype(int)
-    
     data.to_csv('output.csv')
 
 def validate_safe_tx(response):
-
     to=response['txData']['to']['value']
     if to != split_main:
         print("Splits Main contract address mismatch")
@@ -69,7 +71,7 @@ def validate_safe_tx(response):
     if (response['txData']['dataDecoded']['method'] == 'updateSplit') & (split_addr != response['txData']['dataDecoded']['parameters'][0]['value']):
             print("PG Split contract address mismatch")
 
-def safe_tx(tx, data):
+def compare_safe(tx, data):
     url_base = 'https://safe-client.safe.global/v1/chains/1/transactions/multisig_'
 
     if args.v1:
@@ -97,18 +99,37 @@ def safe_tx(tx, data):
     else:
         addresses_list=(jres['txData']['dataDecoded']['parameters'][1]['value'])
         percentage_list=(jres['txData']['dataDecoded']['parameters'][2]['value'])
-
+ 
     timestamp=int(jres['detailedExecutionInfo']['submittedAt']/1000)
     data=weight(data, timestamp)
     split(data)
-    safe_data=pd.DataFrame({'address': pd.Series(addresses_list), 'share': pd.to_numeric(pd.Series(percentage_list), errors='coerce', downcast='integer')}).sort_values('share', ascending=False, ignore_index=True)
 
+    if len(data) != len(addresses_list):
+        print("Different number of members in Safe tx and input data!")
+        print("Local input:", len(data), "members\n" "Safe tx:", len(addresses_list))
+        return 1
 
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-        comp=(safe_data['share'].compare(data['split']).rename(columns={'self': 'Safe tx', 'other': 'Local'}, level=-1))
-        print(comp)
+    data_safe=pd.DataFrame({'address': pd.Series(addresses_list).str.lower(), 'share': pd.to_numeric(pd.Series(percentage_list), errors='coerce', downcast='integer')}).sort_values('address', ascending=False, ignore_index=True)
+    data['sort_address'] = data['address'].str.lower().sort_values(ascending=False, ignore_index=True)
 
-## TODO show more detailed comparison, validate individual addresses
+    for index, member in data_safe.iterrows():
+            if not Web3.is_address(member['address']):
+                print(f"Invalid address in Safe tx: {member['address']}")
+                return 1
+
+    comp_add=data_safe['address'].compare(data['sort_address'], result_names=('Safe tx', 'Local'))
+
+    if not comp_add.empty:
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            print("Difference between Safe tx address list and input:", comp_add)
+
+    comp_share = ((data_safe['share'].sort_values(ascending=False, ignore_index=True)).compare(data['split'], result_names=('Safe tx', 'Local')))
+    if not comp_share.empty:
+        data['% diff'] = (data_safe['share'].sort_values(ascending=False, ignore_index=True).sub(data['split']))/10000
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            print("Percentual differences between local calculation and Safe tx:\n", data[['address', '% diff']])
+        #    print(comp_share.join(data['address']))
+        ## TODO show more detailed comparison
 
 if __name__ == "__main__":
 
@@ -135,8 +156,7 @@ if __name__ == "__main__":
             if n > len(data_old):
                 print(n-len(data_old), "members added")
     else: 
-        print("Missing input file")
-        quit()
+        raise Exception("Missing input file")
 
     if args.splits:
         current_time = int(time.time())
@@ -145,7 +165,7 @@ if __name__ == "__main__":
         for index, member in data.iterrows():
             print(f"{member['address']},{int(member['split'])}")
     elif args.safetx:
-        safe_tx(args.safetx, data)
+        compare_safe(args.safetx, data)
     else:
         current_time = int(time.time())
         data = weight(data, current_time)
