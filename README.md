@@ -1,6 +1,6 @@
-# pg-members
+# Split verification
 
-Calculate current shares of PG members and verify the Split. 
+WIP Calculates current shares of PG members to verify Split allocations and Safe transaction.
 
 ## Usage
 
