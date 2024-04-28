@@ -18,7 +18,35 @@ splitv1='0x84af3D5824F0390b9510440B6ABB5CC02BB68ea1'
 split_main='0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE'
 foundation='0x69f4b27882eD6dc39E820acFc08C3d14f8e98a99'
 
-#TODO tx events from updateSplit
+updateSplit_abi = [
+    {
+        "inputs": [
+            {"internalType": "address", "name": "split", "type": "address"},
+            {"internalType": "address[]", "name": "accounts", "type": "address[]"},
+            {
+                "internalType": "uint32[]",
+                "name": "percentAllocations",
+                "type": "uint32[]",
+            },
+            {"internalType": "uint32", "name": "distributorFee", "type": "uint32"},
+        ],
+        "name": "updateSplit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    }
+]
+
+safeproxy_abi = [
+    {
+        "inputs":[
+            {"internalType":"address","name":"_singleton","type":"address"}
+            ],
+            "stateMutability":"nonpayable","type":"constructor"},
+            {"stateMutability":"payable","type":"fallback"}
+            ]
+
+web3 = Web3(Web3.HTTPProvider(""))
 
 # Load file with all members
 def membership(path):
