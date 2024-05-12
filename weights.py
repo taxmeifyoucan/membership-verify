@@ -18,34 +18,6 @@ splitv1='0x84af3D5824F0390b9510440B6ABB5CC02BB68ea1'
 split_main='0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE'
 foundation='0x69f4b27882eD6dc39E820acFc08C3d14f8e98a99'
 
-updateSplit_abi = [
-    {
-        "inputs": [
-            {"internalType": "address", "name": "split", "type": "address"},
-            {"internalType": "address[]", "name": "accounts", "type": "address[]"},
-            {
-                "internalType": "uint32[]",
-                "name": "percentAllocations",
-                "type": "uint32[]",
-            },
-            {"internalType": "uint32", "name": "distributorFee", "type": "uint32"},
-        ],
-        "name": "updateSplit",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    }
-]
-
-safeproxy_abi = [
-    {
-        "inputs":[
-            {"internalType":"address","name":"_singleton","type":"address"}
-            ],
-            "stateMutability":"nonpayable","type":"constructor"},
-            {"stateMutability":"payable","type":"fallback"}
-            ]
-
 web3 = Web3(Web3.HTTPProvider(""))
 
 # Load file with all members
@@ -71,8 +43,10 @@ def weight(data, timestamp):
 
     data['share'] = shares
 
-    foundation_share = {'address': foundation, 'share': sum(data['share']) / 99} 
-    data = pd.concat([data, pd.DataFrame([foundation_share])], ignore_index=True)
+    if not args.v1:
+        foundation_share = {'address': foundation, 'share': sum(data['share']) / 99} 
+        data = pd.concat([data, pd.DataFrame([foundation_share])], ignore_index=True)
+
     return data.sort_values(by=['share'], ascending=False, ignore_index=True)
 
 # Percentage allocation from share
@@ -150,6 +124,8 @@ def compare_safe(tx, data):
     if not comp_add.empty:
         with pd.option_context('display.max_rows', None, 'display.max_columns', None):
             print("Difference between Safe tx address list and input:", comp_add)
+    else:
+        print("All addresses in csv match the Safe transaction.")
 
     comp_share = ((data_safe['share'].sort_values(ascending=False, ignore_index=True)).compare(data['split'], result_names=('Safe tx', 'Local')))
     if not comp_share.empty:
@@ -181,6 +157,8 @@ if __name__ == "__main__":
         n = len(data) 
         if os.path.exists('output.csv'):
             data_old = membership('output.csv')
+            if foundation in data_old.address.values and args.v1:
+                n=n+1
             if n > len(data_old):
                 print(n-len(data_old), "members added")
     else: 
