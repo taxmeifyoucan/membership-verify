@@ -16,7 +16,7 @@ splitv2='0xd4ad8daba9ee5ef16bb931d1cbe63fb9e102ec10'
 splitv1='0x84af3D5824F0390b9510440B6ABB5CC02BB68ea1'
 # Splits main contract
 split_main='0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE'
-foundation='0x69f4b27882eD6dc39E820acFc08C3d14f8e98a99'
+foundation='0x0cDF1a78f00f56ba879D0aCc0FDa1789e415f23B'
 
 web3 = Web3(Web3.HTTPProvider(""))
 
