@@ -38,13 +38,13 @@ def weight(data, timestamp):
         active_seconds = (timestamp - data['start_timestamp'].iloc[i]) -  data['break_months'].iloc[i] * 2629800
         activity_multiplier =  int(data['multiplier'].iloc[i] * active_seconds / (timestamp - data['start_timestamp'].iloc[i]))
 
-        share = sqrt((timestamp - data['start_timestamp'].iloc[i]) * activity_multiplier / 100) * 0.99
+        share = sqrt((timestamp - data['start_timestamp'].iloc[i]) * activity_multiplier / 100) 
         shares.append(int(share)) 
 
     data['share'] = shares
 
     if not args.v1:
-        foundation_share = {'address': foundation, 'share': sum(data['share']) / 99} 
+        foundation_share = {'address': foundation, 'share': sum(data['share']) / 19}  # 5% foundation share
         data = pd.concat([data, pd.DataFrame([foundation_share])], ignore_index=True)
 
     return data.sort_values(by=['share'], ascending=False, ignore_index=True)
@@ -135,12 +135,49 @@ def compare_safe(tx, data):
         #    print(comp_share.join(data['address']))
         ## TODO show more detailed comparison
 
+
+def compare_dao(data):
+    #I cannot make it work with graph api, using local copy of proposed data for now
+    path='proposal.csv'
+    if os.path.exists(path):
+        csv = pd.read_csv(path)
+        dao_data = csv[['address', 'share']]
+        for index, member in dao_data.iterrows():
+            if not Web3.is_address(member['address']):
+                raise Exception(f"Invalid input address: {member['address']}")
+    else:
+        print("Missing input data")
+
+    if len(data) != len(dao_data):
+        print("Different number of members in dao tx and input data!")
+        print("Local input:", len(data), "members\n" "Dao tx:", len(dao_data))
+        return 1
+
+    dao_data['sort_address'] = dao_data['address'].str.lower().sort_values(ascending=False).values
+    data['sort_address'] = data['address'].str.lower().sort_values(ascending=False).values
+
+    comp_add = dao_data['sort_address'].compare(data['sort_address'], result_names=('Dao tx', 'Local'))
+
+    if not comp_add.empty:
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            print("Difference between dao tx address list and input:", comp_add)
+    else:
+        print("All addresses in csv match the dao transaction.")
+        
+    comp_share = ((dao_data['share'].sort_values(ascending=False, ignore_index=True)).compare(data['split']/100000, result_names=('Dao tx', 'Local')))
+    if not comp_share.empty:
+        data['% diff'] = (dao_data['share'].sort_values(ascending=False, ignore_index=True).sub(data['split']/10000))
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            print("Percentual differences between local calculation and Dao tx:\n", data[['address', '% diff']])
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Calculate PG members weights')
     parser.add_argument('--percent', action='store_true', help='Only print the member\'s address and current percentage. (default)')
     parser.add_argument('--splits', action='store_true', help='Print and write output for Split update')
     parser.add_argument('--safetx', type=str, help='Split update tx hash from Safe (multisig frontend) to verify')
+    parser.add_argument('--dao', action='store_true', help='Verify data in Daohaus, currently needs local data in ./proposal.csv')
     parser.add_argument('--input_file', type=str, help='Input file with member data (default: ./members.csv)')
     parser.add_argument('--v2', action='store_true', help='Point to PGv2 contracts (default)')
     parser.add_argument('--v1', action='store_true', help='Point to PGv1 contracts')
@@ -172,6 +209,11 @@ if __name__ == "__main__":
             print(f"{member['address']},{int(member['split'])}")
     elif args.safetx:
         compare_safe(args.safetx, data)
+    elif args.dao:
+        current_time = int(time.time())
+        data = weight(data, current_time)
+        split(data)
+        compare_dao(data)
     else:
         current_time = int(time.time())
         data = weight(data, current_time)

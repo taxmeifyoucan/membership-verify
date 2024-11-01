@@ -44,6 +44,12 @@ Percentual differences between local calculation and Safe tx:
 ...
 ```
 
+The `output.csv` file contains the calculated data. In case of comparison with Safe or DAO, the difference can be found in diff column. 
+
+### DAO vote verification
+
+The graph api from daohause won't let me access the details of proposal, I am in process of figuring it out. Meanwhile, a copy of the proposal data is stored in `proposal.csv` which can be then verified against local calculation using `--dao`.
+
 ### TODO
 
 - Validate executed updateSplit transactions based on onchain data
